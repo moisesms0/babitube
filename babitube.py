@@ -9,23 +9,30 @@ cola = []
 
 carpeta_destino = os.path.join(os.path.expanduser("~"), "Music")
 
+# Primer paso al pulsar el boton de descargar, donde se comprueba si la url es valida y si hay canciones en la cola
 def descargar():
-        
+    
+    # Se obtiene la url escrita en el entry
     url = url_entry.get()
 
+    # Se comprueba que la url sea correcta
     try:
         cola.append(YouTube(url))
     except:
         messagebox.showerror("Error", "URL Inválida")
         return
 
+    # Si hay canciones en la cola la comienza a descargar
     if len(cola) == 1:
         threading.Thread(target=descargar_siguiente).start()
     
+# Se descargan las canciones de la cola, se convierten a mp3 y se borran en su version mp4
 def descargar_siguiente():
     
+    # Se guarda el primero en la cola
     video = cola[0]
 
+    # Se sustituyen valores que puedan dar errores en el nombre
     formatted_filename = video.title.replace("___","_").replace("__","_")
 
     # Descarga el video
@@ -34,8 +41,6 @@ def descargar_siguiente():
 
     # Creamos un objeto de tipo contenedor AV para leer el archivo de entrada
     container = av.open(new_name[0]+'.mp4')
-
-    # encontrar el primer stream de audio
     audio_stream = next(s for s in container.streams if s.type == 'audio')
 
     # crear un objeto para el archivo de audio de salida
@@ -51,30 +56,33 @@ def descargar_siguiente():
             if encoded_packet:
                 output.mux(encoded_packet)
 
-    # cerrar los archivos de entrada y salida
+    # Cerrar los archivos de entrada y salida, borrar el archivo mp4
     container.close()
     output.close()
     os.remove(new_name[0]+'.mp4')
 
+    # Se elimina de la cola
     cola.pop(0)
 
+    # Se muestra en la consola que se descargo correctamente (Para pruebas)
     print(f"{formatted_filename} Se ha descargado correctamente")
 
+    # Si hay otra cancion en la cola se actualiza el estado y se comienza a descargar la siguiente
     if len(cola) > 0:
         actualizar_estado()
         threading.Thread(target=descargar_siguiente).start()
 
-# Crea la ventana
+# Crea la ventana, pone icono, vuelve la ventana no redimensionable, pone el tiulo y fondo
 window = tk.Tk()
 window.iconbitmap('babiboy.ico')
-window.geometry("450x320")
+window.geometry("450x280")
+window.resizable(False, False)
 window.title("Babilawi's Youtube Downloader")
 window.config(bg='#262626')
 
 # Crea el formulario
 form_frame = tk.Frame(window, bg='#262626')
 form_frame.pack(expand=True, fill='both', padx=20, pady=(20,10))
-
 url_label = tk.Label(form_frame, text="Ingresa la URL del video de YouTube:", bg='#262626', fg='white', font=('Arial', 14))
 url_entry = tk.Entry(form_frame, bg='#333333', fg='white', insertbackground='white', font=('Arial', 12), width=35)
 
@@ -87,6 +95,7 @@ style.map('Custom.TButton', background=[('active', '#ff5722')])
 # Crear el botón utilizando el estilo personalizado
 download_button = ttk.Button(form_frame, text="Descargar", style='Custom.TButton', command=descargar)
 
+# al pulsar el boton de cambiar carpeta actualiza la ruta a la seleccionada, en caso de no seleccionar se pone la ruta por defecto
 def configurar_carpeta_destino():
     global carpeta_destino
 
@@ -97,7 +106,6 @@ def configurar_carpeta_destino():
         carpeta_destino_label.config(text=f'Carpeta de destino: {carpeta_destino}')
 
 # Crea un label y un entry para mostrar la carpeta de destino seleccionada
-
 carpeta_destino_label = tk.Label(form_frame, text="Carpeta de destino:", bg='#262626', fg='white', font=('Arial', 12))
 carpeta_destino_label.config(text=f'Carpeta de destino: {carpeta_destino}')
 
@@ -108,7 +116,6 @@ seleccionar_carpeta_button = ttk.Button(form_frame, text="Seleccionar Carpeta", 
 url_label.pack(pady=(0,10))
 url_entry.pack(pady=(0,10))
 carpeta_destino_label.pack(pady=(0,10))
-
 seleccionar_carpeta_button.pack(pady=(0,20))
 download_button.pack()
 
@@ -125,6 +132,6 @@ def actualizar_estado():
     window.after(100, actualizar_estado)
 
 # Crea un bucle y comienza a actualizar el estado
-window.config(bg='#262626')
+
 actualizar_estado()
 window.mainloop()
