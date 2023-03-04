@@ -1,11 +1,15 @@
-from pytube import YouTube
+from pytube import YouTube,exceptions
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import os
 import av
 import threading
+import time
+
 
 cola = []
+
+
 
 carpeta_destino = os.path.join(os.path.expanduser("~"), "Music")
 
@@ -33,7 +37,11 @@ def descargar_siguiente():
     video = cola[0]
 
     # Se sustituyen valores que puedan dar errores en el nombre
-    formatted_filename = video.title.replace("___","_").replace("__","_")
+    try:
+        formatted_filename = video.title.replace("@","").replace(".","")
+    except exceptions.PytubeError as e:
+        status_label.config(text='Error de red')
+        return
 
     # Descarga el video
     audio = video.streams.get_lowest_resolution().download();
@@ -48,13 +56,27 @@ def descargar_siguiente():
 
     # agregar un stream de audio al archivo de salida
     output_stream = output.add_stream('mp3')
+    total_frames = container.streams.audio[0].frames
+    frames_converted = 0
+
 
     # iterar a través de los paquetes de audio y decodificarlos, luego codificarlos como mp3 y escribirlos en el archivo de salida
+
     for packet in container.demux(audio_stream):
         for frame in packet.decode():
             encoded_packet = output_stream.encode(frame)
             if encoded_packet:
-                output.mux(encoded_packet)
+                try:
+    # sección de código que puede generar el error
+                    output.mux(encoded_packet)
+                except av.error.ValueError as e:
+    # manejo del error
+                    status_label.config(text='No se puede convertir esta canción, reincia el programa...')
+                    return
+
+            frames_converted += 1
+            progress_value.set(int((frames_converted / total_frames) * 100))
+
 
     # Cerrar los archivos de entrada y salida, borrar el archivo mp4
     container.close()
@@ -66,6 +88,9 @@ def descargar_siguiente():
 
     # Se muestra en la consola que se descargo correctamente (Para pruebas)
     print(f"{formatted_filename} Se ha descargado correctamente")
+    progress_value.set(0)
+
+
 
     # Si hay otra cancion en la cola se actualiza el estado y se comienza a descargar la siguiente
     if len(cola) > 0:
@@ -74,15 +99,16 @@ def descargar_siguiente():
 
 # Crea la ventana, pone icono, vuelve la ventana no redimensionable, pone el tiulo y fondo
 window = tk.Tk()
+progress_value = tk.DoubleVar()
 window.iconbitmap('babiboy.ico')
-window.geometry("450x280")
+window.geometry("450x306")
 window.resizable(False, False)
 window.title("Babilawi's Youtube Downloader")
 window.config(bg='#262626')
 
 # Crea el formulario
 form_frame = tk.Frame(window, bg='#262626')
-form_frame.pack(expand=True, fill='both', padx=20, pady=(20,10))
+form_frame.pack(expand=True, fill='both', padx=20, pady=(20,0))
 url_label = tk.Label(form_frame, text="Ingresa la URL del video de YouTube:", bg='#262626', fg='white', font=('Arial', 14))
 url_entry = tk.Entry(form_frame, bg='#333333', fg='white', insertbackground='white', font=('Arial', 12), width=35)
 
@@ -105,6 +131,8 @@ def configurar_carpeta_destino():
     else:
         carpeta_destino_label.config(text=f'Carpeta de destino: {carpeta_destino}')
 
+
+
 # Crea un label y un entry para mostrar la carpeta de destino seleccionada
 carpeta_destino_label = tk.Label(form_frame, text="Carpeta de destino:", bg='#262626', fg='white', font=('Arial', 12))
 carpeta_destino_label.config(text=f'Carpeta de destino: {carpeta_destino}')
@@ -117,11 +145,22 @@ url_label.pack(pady=(0,10))
 url_entry.pack(pady=(0,10))
 carpeta_destino_label.pack(pady=(0,10))
 seleccionar_carpeta_button.pack(pady=(0,20))
-download_button.pack()
+download_button.pack(pady=(0,0))
 
 # Agrega un label de estado
-status_label = tk.Label(window, text='Esperando descarga...', bg='#262626', fg='white')
-status_label.pack(side='bottom', fill='x', padx=10, pady=10)
+status_label = tk.Label(form_frame, text='Esperando descarga...', bg='#262626', fg='white')
+status_label.pack( fill='x', padx=0, pady=(15))
+
+
+
+# Crea un frame para la barra de progreso
+progress_frame = tk.Frame(window, bg='#262626')
+progress_frame.pack(expand=True, fill='both', padx=0, pady=0)
+
+style.configure('green.Horizontal.TProgressbar', troughcolor='#262626', background='green', bordercolor='#262626',borderwidth=1)
+
+progress_bar = ttk.Progressbar(progress_frame, orient='horizontal', mode='determinate', length=450, variable=progress_value, style="green.Horizontal.TProgressbar")
+progress_bar.pack(side='bottom', pady=(0,0))
 
 # Define una función para actualizar el estado
 def actualizar_estado():
